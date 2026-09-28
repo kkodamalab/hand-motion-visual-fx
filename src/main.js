@@ -26,11 +26,11 @@ function updateMetrics(now){const rate=t=>t?Math.round(1000/Math.max(1,now-t)):0
 async function start(){
   try {
     setStatus('カメラを起動中…');await camera.start({facingMode:state.camera,width:{ideal:1280},height:{ideal:720}});
-    renderer.resize(video.videoWidth,video.videoHeight);state.running=true;$('#home').hidden=true;$('#studio').hidden=false;lastRender=performance.now();
+    renderer.resize(video.videoWidth,video.videoHeight);state.running=true;lastRender=performance.now();
     try {three=new ThreeOverlay(threeCanvas);three.resize(video.videoWidth,video.videoHeight);diagnostic.webglStatus='ready';}catch(e){three=null;diagnostic.webglStatus='unavailable';fail('WebGL initialisation',e);}
     setStatus('LIVE','ok');raf=requestAnimationFrame(loop);
     diagnostic.mediaPipeStatus='loading';tracker.init().then(()=>{diagnostic.mediaPipeStatus=`ready (${tracker.delegate})`;}).catch(e=>{diagnostic.mediaPipeStatus='unavailable';fail('MediaPipe initialisation',e);});
-  }catch(e){fail('Camera start',e);setStatus(`起動できません: ${e.message}`,'error');$('#error').textContent='カメラ権限またはカメラ接続を確認してください。';}
+  }catch(e){fail('Camera start',e);setStatus(`起動できません: ${e.message}`,'error');const errorEl=$('#error');if(errorEl)errorEl.textContent='カメラ権限またはカメラ接続を確認してください。';}
 }
 
 function loop(now){
