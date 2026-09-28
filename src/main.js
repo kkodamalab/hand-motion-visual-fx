@@ -4,15 +4,15 @@ import { HandTracker } from './core/handTracker.js';
 import { GestureDetector } from './core/gestureDetector.js';
 import { FXRenderer } from './core/renderer.js';
 import { ThreeOverlay } from './core/threeOverlay.js';
-import { PersonSegmenter } from './core/segmenter.js';
+import { PersonSegmenter, backgroundDifference } from './core/segmenter.js';
 import { buildUI } from './ui/controls.js';
 
 const defaults={mode:'cube',frameEffect:'pop',size:1,speed:1,particles:400,particleSize:3,dispersion:70,particleColor:'#ff4baf',mirror:true,debug:true,maskDebug:false,camera:'user',cubeColor:'#c45bff',edgeColor:'#65fff1',opacity:1,wireframe:false,follow:6,pixelSize:10,colorDepth:5,posterize:5,borderColor:'#4cfbff',borderWidth:3,edgeGlow:12,transitionDuration:1000,gestureHold:500};
-const state={...defaults,running:false,gesture:''};
+const state={...defaults,differenceSensitivity:.18,running:false,gesture:''};
 document.querySelector('#app').innerHTML=buildUI();
 const $=s=>document.querySelector(s), video=$('#camera'), canvas=$('#output'), overlay=$('#overlay'), threeCanvas=$('#three');
 const invisiblePanel=document.querySelector('[data-mode-panel="invisible"]');
-invisiblePanel?.insertAdjacentHTML('afterbegin','<p id="captureCountdown" aria-live="polite"></p><canvas id="backgroundPreview" width="160" height="90"></canvas>');
+invisiblePanel?.insertAdjacentHTML('afterbegin','<p id="captureCountdown" aria-live="polite"></p><canvas id="backgroundPreview" width="160" height="90"></canvas><p id="maskMethod">MASK METHOD: —</p><input data-setting="differenceSensitivity" type="range" min=".05" max=".5" step=".01"><output data-output="differenceSensitivity"></output>');
 const camera=new CameraEngine(video),tracker=new HandTracker(),gestures=new GestureDetector(),renderer=new FXRenderer(canvas,overlay),segmenter=new PersonSegmenter();
 let three=null,raf=0,lastRender=0,lastCamera=0,lastInference=0,lastSegment=0,background=null,segmentation=null,recorder=null,chunks=[],lastData={hands:[],bones:[],gesture:''};
 let captureTimer=null;
@@ -22,7 +22,7 @@ function setStatus(text,kind=''){ $('#status').textContent=text;$('#status').cla
 function fail(where,error){const msg=error?.message||String(error);diagnostic.lastError=`${where}: ${msg}`;console.error(where,error);}
 function syncControls(){document.querySelectorAll('[data-setting]').forEach(el=>{const k=el.dataset.setting;el.type==='checkbox'?el.checked=state[k]:el.value=state[k];const out=document.querySelector(`[data-output="${k}"]`);if(out)out.textContent=el.dataset.unit==='ms'?`${state[k]} ms (${(state[k]/1000).toFixed(1)}秒)`:state[k];});}
 function activePanel(){document.querySelectorAll('[data-mode-panel]').forEach(x=>x.hidden=x.dataset.modePanel!==state.mode);document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('active',x.dataset.mode===state.mode));}
-function enableSegmentation(){if(segmenter.segmenter||segmenter.loading)return;diagnostic.mediaPipeStatus='segmenter loading';$('#maskStatus').textContent='PERSON MASK: LOADING';segmenter.init().then(()=>{$('#maskStatus').textContent='PERSON MASK: READY';}).catch(e=>{fail('Person segmentation',e);$('#maskStatus').textContent='PERSON MASK: ERROR';});}
+function enableSegmentation(){if(segmenter.segmenter||segmenter.loading)return;diagnostic.mediaPipeStatus='segmenter loading';$('#maskStatus').textContent='PERSON MASK: LOADING';segmenter.init().then(()=>{$('#maskStatus').textContent='PERSON MASK: READY';$('#maskMethod').textContent='MASK METHOD: AI';}).catch(e=>{fail('Person segmentation',e);$('#maskStatus').textContent='PERSON MASK: ERROR';$('#maskMethod').textContent='MASK METHOD: BACKGROUND DIFFERENCE';});}
 function scheduleBackgroundCapture(){if(!video.srcObject||video.readyState<2){setStatus('カメラ映像がないため撮影できません','error');return;}clearInterval(captureTimer);let seconds=3;$('#captureCountdown').textContent=`背景撮影まで ${seconds} 秒`;captureTimer=setInterval(()=>{seconds-=1;if(seconds>0){$('#captureCountdown').textContent=`背景撮影まで ${seconds} 秒`;return;}clearInterval(captureTimer);captureTimer=null;background=renderer.capture(video);const preview=$('#backgroundPreview');preview?.getContext('2d').drawImage(background,0,0,160,90);$('#backgroundStatus').textContent='BACKGROUND: READY';$('#captureCountdown').textContent='背景を保存しました';setStatus(segmentation?'背景をキャプチャしました':'背景をキャプチャしました（マスク未取得・要確認）',segmentation?'ok':'error');},1000);}
 function emptyResult(){return {landmarks:[],handednesses:[]};}
 function updateMetrics(now){const rate=t=>t?Math.round(1000/Math.max(1,now-t)):0;$('#metrics').textContent=`Camera FPS: ${rate(lastCamera)} · Render FPS: ${diagnostic.render} · MediaPipe FPS: ${diagnostic.mediaPipe} · Detected Hands: ${lastData.hands.length} · MediaPipe: ${diagnostic.mediaPipeStatus} · WebGL: ${diagnostic.webglStatus} · Last Error: ${diagnostic.lastError}`;}
@@ -48,7 +48,7 @@ function loop(now){
     try {const started=performance.now(),result=tracker.detect(video,now)||emptyResult();lastData=gestures.update(result,now,video.videoWidth,video.videoHeight,state.mode==='invisible'?state.gestureHold:120);state.gesture=lastData.gesture;$('#gestureStatus').textContent=`GESTURE: ${lastData.rawGesture} · HOLD ${Math.round(lastData.holdElapsed)} ms · INVISIBLE ${state.gesture==='OPEN'?'ON':'OFF'}`;diagnostic.mediaPipe=Math.round(1000/Math.max(1,performance.now()-started));diagnostic.mediaPipeStatus=`ready (${tracker.delegate})`;lastInference=now;}
     catch(e){diagnostic.mediaPipeStatus='inference error';fail('MediaPipe inference',e);lastData={hands:[],bones:[],gesture:''};}
   }
-  if(['invisible','dissolve'].includes(state.mode)){enableSegmentation();if(segmenter.segmenter&&now-lastSegment>100)segmenter.detect(video,now).then(x=>{segmentation=x;lastSegment=now;}).catch(e=>fail('Person segmentation',e));}
+  if(['invisible','dissolve'].includes(state.mode)){enableSegmentation();if(segmenter.segmenter&&now-lastSegment>100)segmenter.detect(video,now).then(x=>{segmentation=x;lastSegment=now;}).catch(e=>{fail('Person segmentation',e);});if(!segmenter.segmenter&&segmenter.failed&&background&&now-lastSegment>100){segmentation=backgroundDifference(background,video,state.differenceSensitivity);lastSegment=now;}}
   updateMetrics(now);
 }
 function reset(){Object.assign(state,defaults);renderer.reset();syncControls();activePanel();}

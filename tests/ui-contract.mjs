@@ -18,4 +18,9 @@ assert(main.includes('scheduleBackgroundCapture'), 'background capture must be i
 assert(main.includes("background=renderer.capture(video)"), 'camera frames must be capturable without a mask');
 assert(renderer.includes("if(!bg||!seg?.data)"), 'invisible rendering must require both background and mask');
 assert(main.includes('backgroundPreview'), 'background preview must be wired');
+assert(main.includes('backgroundDifference'), 'background-difference fallback must be wired');
+assert(main.includes('differenceSensitivity'), 'background-difference sensitivity must be exposed');
+assert(main.includes('segmenter.loading'), 'segmenter initialization promise must be shared');
+assert(main.includes('segmenter.failed'), 'segmenter failure must stop retry loops');
+assert(renderer.includes('!bg||!seg?.data'), 'invisible effect must wait for background and mask');
 console.log('UI contract passed');

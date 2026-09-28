@@ -1,26 +1,9 @@
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
-
-// Loaded lazily: only Invisible needs the extra model and GPU allocation.
+const wasm='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/wasm';
 export class PersonSegmenter {
-  constructor(){ this.segmenter=null; this.loading=null; this.last=null; this.error=''; }
-  async init(){
-    if(this.segmenter) return this.segmenter;
-    if(this.loading) return this.loading;
-    this.loading=(async()=>{
-      const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/wasm');
-      this.segmenter=await ImageSegmenter.createFromOptions(vision,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/selfie_segmenter/landscape/float16/latest/selfie_segmenter_landscape.tflite',delegate:'GPU'},runningMode:'VIDEO',outputCategoryMask:true,outputConfidenceMasks:false});
-      return this.segmenter;
-    })().catch(e=>{this.error=e.message; this.loading=null; throw e;});
-    return this.loading;
-  }
-  async detect(video,timestamp){
-    if(!this.segmenter || video.readyState<2) return this.last;
-    // segmentForVideo is synchronous in Tasks Vision; retain only its compact mask.
-    const result=this.segmenter.segmentForVideo(video,timestamp);
-    const mask=result.categoryMask;
-    if(mask) this.last={data:mask.getAsFloat32Array(),width:mask.width,height:mask.height};
-    result.close?.();
-    return this.last;
-  }
+  constructor(){this.segmenter=null;this.loading=null;this.last=null;this.error='';this.failed=false;}
+  async init(){if(this.segmenter)return this.segmenter;if(this.loading)return this.loading;if(this.failed)throw new Error(this.error||'Image Segmenter initialization previously failed');this.loading=(async()=>{const vision=await FilesetResolver.forVisionTasks(wasm);return ImageSegmenter.createFromOptions(vision,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/selfie_segmenter/landscape/float16/latest/selfie_segmenter_landscape.tflite',delegate:'GPU'},runningMode:'VIDEO',outputCategoryMask:true,outputConfidenceMasks:false});})().then(x=>{this.segmenter=x;return x;}).catch(e=>{this.error=e.message;this.failed=true;throw e;}).finally(()=>{this.loading=null;});return this.loading;}
+  async detect(video,timestamp){if(!this.segmenter||video.readyState<2)return this.last;const result=this.segmenter.segmentForVideo(video,timestamp);const mask=result.categoryMask;if(mask)this.last={data:mask.getAsFloat32Array(),width:mask.width,height:mask.height,method:'AI'};result.close?.();return this.last;}
   close(){this.segmenter?.close?.();this.segmenter=null;this.last=null;}
 }
+export function backgroundDifference(background,video,sensitivity=.18){if(!background||video.readyState<2)return null;const w=320,h=180,a=document.createElement('canvas'),b=document.createElement('canvas');a.width=b.width=w;a.height=b.height=h;const ac=a.getContext('2d',{willReadFrequently:true}),bc=b.getContext('2d',{willReadFrequently:true});ac.drawImage(background,0,0,w,h);bc.drawImage(video,0,0,w,h);const bg=ac.getImageData(0,0,w,h).data,now=bc.getImageData(0,0,w,h).data,out=new Float32Array(w*h),threshold=Math.max(12,Math.min(100,sensitivity*255));for(let i=0,p=0;i<now.length;i+=4,p++){const d=Math.abs(now[i]-bg[i])+Math.abs(now[i+1]-bg[i+1])+Math.abs(now[i+2]-bg[i+2]);out[p]=d>threshold*3?1:0;}return {data:out,width:w,height:h,method:'BACKGROUND DIFFERENCE'};}
