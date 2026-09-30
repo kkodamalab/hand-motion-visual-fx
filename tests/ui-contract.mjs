@@ -24,3 +24,12 @@ assert(main.includes('segmenter.loading'), 'segmenter initialization promise mus
 assert(main.includes('segmenter.failed'), 'segmenter failure must stop retry loops');
 assert(renderer.includes('!bg||!seg?.data'), 'invisible effect must wait for background and mask');
 console.log('UI contract passed');
+
+const mosw = await readFile(new URL('../src/core/moswFx.js', import.meta.url), 'utf8');
+for (const effect of ['rgb','glitch','mirror','wave','mono','invert','mosaic','strobe','zoom','film']) {
+  assert(ui.includes(`'${effect}'`), `${effect} must be included in the FX catalog`);
+  assert(mosw.includes(`  ${effect}(`), `${effect} must have a rendering implementation`);
+}
+assert(main.includes('active>=3'), 'the UI must enforce the three-effect limit');
+assert(main.includes('getUserMedia({audio:true})'), 'microphone sync must request an audio stream');
+assert(renderer.includes("s.mode==='frame'?this.mosw.apply"), 'MOSW FX must be clipped to Hand Frame mode');
