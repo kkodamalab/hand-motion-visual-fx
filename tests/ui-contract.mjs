@@ -32,4 +32,9 @@ for (const effect of ['rgb','glitch','mirror','wave','mono','invert','mosaic','s
 }
 assert(main.includes('active>=3'), 'the UI must enforce the three-effect limit');
 assert(main.includes('getUserMedia({audio:true})'), 'microphone sync must request an audio stream');
-assert(renderer.includes("s.mode==='frame'?this.mosw.apply"), 'MOSW FX must be clipped to Hand Frame mode');
+assert(renderer.includes("s.frameRenderer !== 'mosw'"), 'Hand Frame must bypass classic processing in MOSW mode');
+assert(renderer.includes('drawClippedFrame(this.x, rendered, quad)'), 'MOSW FX must be clipped to Hand Frame mode');
+assert(ui.includes('value="classic"') && ui.includes('value="mosw"'), 'Hand Frame must offer CLASSIC / MOSW FX modes');
+
+assert(main.includes('stream?.getTracks().forEach((track) => track.stop())'), 'microphone tracks must stop when sync is disabled');
+assert(main.includes('await context.close()'), 'the microphone AudioContext must close when sync is disabled');
