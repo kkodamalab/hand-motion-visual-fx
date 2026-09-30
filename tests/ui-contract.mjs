@@ -24,3 +24,17 @@ assert(main.includes('segmenter.loading'), 'segmenter initialization promise mus
 assert(main.includes('segmenter.failed'), 'segmenter failure must stop retry loops');
 assert(renderer.includes('!bg||!seg?.data'), 'invisible effect must wait for background and mask');
 console.log('UI contract passed');
+
+const mosw = await readFile(new URL('../src/core/moswFx.js', import.meta.url), 'utf8');
+for (const effect of ['rgb','glitch','mirror','wave','mono','invert','mosaic','strobe','zoom','film']) {
+  assert(ui.includes(`'${effect}'`), `${effect} must be included in the FX catalog`);
+  assert(mosw.includes(`  ${effect}(`), `${effect} must have a rendering implementation`);
+}
+assert(main.includes('active>=3'), 'the UI must enforce the three-effect limit');
+assert(main.includes('getUserMedia({audio:true})'), 'microphone sync must request an audio stream');
+assert(renderer.includes("s.frameRenderer !== 'mosw'"), 'Hand Frame must bypass classic processing in MOSW mode');
+assert(renderer.includes('drawClippedFrame(this.x, rendered, quad)'), 'MOSW FX must be clipped to Hand Frame mode');
+assert(ui.includes('value="classic"') && ui.includes('value="mosw"'), 'Hand Frame must offer CLASSIC / MOSW FX modes');
+
+assert(main.includes('stream?.getTracks().forEach((track) => track.stop())'), 'microphone tracks must stop when sync is disabled');
+assert(main.includes('await context.close()'), 'the microphone AudioContext must close when sync is disabled');
