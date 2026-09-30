@@ -2,6 +2,22 @@ export const MOSW_EFFECTS = ['rgb', 'glitch', 'mirror', 'wave', 'mono', 'invert'
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+export function rgbSplitPixels(source, width, height, amount) {
+  const offset = Math.max(0, Math.round(amount));
+  const output = new Uint8ClampedArray(source.length);
+  if (!offset) { output.set(source); return output; }
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const target = (y * width + x) * 4;
+    const redX = x + offset; // sample from the right, moving red to the left
+    const blueX = x - offset; // sample from the left, moving blue to the right
+    output[target] = redX < width ? source[(y * width + redX) * 4] : 0;
+    output[target + 1] = source[target + 1];
+    output[target + 2] = blueX >= 0 ? source[(y * width + blueX) * 4 + 2] : 0;
+    output[target + 3] = source[target + 3];
+  }
+  return output;
+}
+
 export function resetCanvasState(context) {
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.globalAlpha = 1;
@@ -45,15 +61,11 @@ export class MoswFx {
   }
 
   rgb(x, src, p) {
-    const offset = p.amount;
-    x.globalCompositeOperation = 'screen';
-    x.globalAlpha = .7;
-    x.drawImage(src, -offset, 0);
-    x.globalCompositeOperation = 'multiply';
-    x.drawImage(src, offset, 0);
-    x.globalCompositeOperation = 'source-over';
-    x.globalAlpha = 1;
-    x.drawImage(src, 0, 0);
+    const width = x.canvas.width, height = x.canvas.height;
+    const source = src.getContext('2d', {willReadFrequently:true}).getImageData(0, 0, width, height);
+    const output = x.createImageData(width, height);
+    output.data.set(rgbSplitPixels(source.data, width, height, p.amount));
+    x.putImageData(output, 0, 0);
   }
 
   glitch(x, src, p, time) {
