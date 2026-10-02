@@ -1,0 +1,17 @@
+import { strict as assert } from 'node:assert';
+import { classifyExpression, FaceExpressionSmoother } from '../src/core/faceExpressions.js';
+import { GestureDetector } from '../src/core/gestureDetector.js';
+const cats=(values)=>Object.entries(values).map(([categoryName,score])=>({categoryName,score}));
+assert.equal(classifyExpression(cats({mouthSmileLeft:.9,mouthSmileRight:.8})).expression,'SMILE');
+assert.equal(classifyExpression(cats({jawOpen:.95,eyeWideLeft:.8,eyeWideRight:.8})).expression,'SURPRISED');
+assert.equal(classifyExpression(cats({browDownLeft:.9,browDownRight:.9})).expression,'ANGRY');
+assert.equal(classifyExpression(cats({mouthFrownLeft:.9,mouthFrownRight:.9})).expression,'SAD');
+assert.equal(classifyExpression([]).expression,'NEUTRAL');
+const landmarks=Array.from({length:478},(_,i)=>({x:.4+(i%2)*.2,y:.3+(i%3)*.1}));
+landmarks[33]={x:.4,y:.4};landmarks[263]={x:.6,y:.4};
+const smoother=new FaceExpressionSmoother();
+const seen=smoother.update({faceLandmarks:[landmarks],faceBlendshapes:[{categories:cats({mouthSmileLeft:.9,mouthSmileRight:.9})}]},1000);
+assert.equal(seen.length,1);assert.equal(smoother.update({faceLandmarks:[]},1300).length,1,'face should survive a brief tracking loss');assert.equal(smoother.update({faceLandmarks:[]},1600).length,0,'face should expire after grace period');
+const open=Array.from({length:21},()=>({x:.5,y:.5,z:0}));open[0]={x:.5,y:.9,z:0};for(const i of [6,10,14,18])open[i]={x:.5,y:.7,z:0};for(const i of [8,12,16,20])open[i]={x:.5,y:.2,z:0};
+const detector=new GestureDetector();detector.update({landmarks:[open],handednesses:[[{categoryName:'Left'}]]},0,100,100,100);const data=detector.update({landmarks:[open],handednesses:[[{categoryName:'Left'}]]},150,100,100,100);assert.equal(data.hands[0].gesture,'OPEN');assert.ok(data.hands[0].center);
+console.log('New mode logic passed');
