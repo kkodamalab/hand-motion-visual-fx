@@ -1,0 +1,18 @@
+const TAU=Math.PI*2;
+export function radialParticle(source,random=Math.random){const angle=random()*TAU,speed=.9+random()*1.4;return {x:source.x,y:source.y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,age:0,maxAge:150+Math.floor(random()*150)};}
+export function edgeParticle(bounds,target,random=Math.random){const edge=Math.floor(random()*4),along=random();let x,y;if(edge===0){x=along*bounds.width;y=0;}else if(edge===1){x=bounds.width;y=along*bounds.height;}else if(edge===2){x=along*bounds.width;y=bounds.height;}else{x=0;y=along*bounds.height;}const dx=target.x-x,dy=target.y-y,length=Math.max(1,Math.hypot(dx,dy)),speed=.8+random();return {x,y,vx:dx/length*speed,vy:dy/length*speed,age:0,maxAge:220+Math.floor(random()*180)};}
+export function meanDistance(particles,point){return particles.reduce((sum,p)=>sum+Math.hypot(p.x-point.x,p.y-point.y),0)/Math.max(1,particles.length);}
+export function stepHandFlowParticles(particles,hands,state,bounds,options={}){
+  const random=options.random||Math.random,dt=options.dt||1,opens=hands.filter(h=>h.gesture==='OPEN'),fists=hands.filter(h=>h.gesture==='FIST');let cursor=options.cursor||0,respawns=0;
+  const replace=(index,value)=>{Object.assign(particles[index],value);respawns++;};
+  // Re-seed the existing cloud quickly enough that OPEN becomes a visible continuous source.
+  if(opens.length){const perSource=Math.max(2,Math.ceil(particles.length/90));for(const source of opens)for(let n=0;n<perSource;n++){const index=cursor++%particles.length,particle=radialParticle(source.screen,random);if(fists.length){const sink=fists.reduce((best,h)=>Math.hypot(h.screen.x-source.screen.x,h.screen.y-source.screen.y)<Math.hypot(best.screen.x-source.screen.x,best.screen.y-source.screen.y)?h:best,fists[0]),dx=sink.screen.x-source.screen.x,dy=sink.screen.y-source.screen.y,length=Math.max(1,Math.hypot(dx,dy)),speed=1.2+random();particle.vx=dx/length*speed;particle.vy=dy/length*speed;}replace(index,particle);}}
+  for(let index=0;index<particles.length;index++){const p=particles[index];p.age=(p.age||0)+dt;
+    if(fists.length){const sink=fists.reduce((best,h)=>Math.hypot(p.x-h.screen.x,p.y-h.screen.y)<Math.hypot(p.x-best.screen.x,p.y-best.screen.y)?h:best,fists[0]),dx=sink.screen.x-p.x,dy=sink.screen.y-p.y,distance=Math.max(1,Math.hypot(dx,dy)),desiredSpeed=Math.max(.35,Math.min(2.8,distance/55))*(state.flowStrength||1),smoothness=Math.max(0,Math.min(100,state.flowSmoothness??70)),turnBase=(distance<(state.flowRadius||240)?.3:.16)*(1-smoothness*.004),turn=1-Math.pow(1-turnBase,dt);p.vx+=(dx/distance*desiredSpeed-p.vx)*turn;p.vy+=(dy/distance*desiredSpeed-p.vy)*turn;if(distance<9){replace(index,edgeParticle(bounds,sink.screen,random));continue;}}
+    else if(opens.length){const nearest=opens.reduce((best,h)=>Math.hypot(p.x-h.screen.x,p.y-h.screen.y)<Math.hypot(p.x-best.screen.x,p.y-best.screen.y)?h:best,opens[0]),dx=p.x-nearest.screen.x,dy=p.y-nearest.screen.y,distance=Math.max(1,Math.hypot(dx,dy));if(distance<(state.flowRadius||240)){const boost=(1-distance/(state.flowRadius||240))*(state.flowStrength||1)*.045*dt;p.vx+=dx/distance*boost;p.vy+=dy/distance*boost;}}
+    else{const damping=Math.pow(.94,dt);p.vx*=damping;p.vy*=damping;}
+    p.x+=p.vx*dt*(state.speed||1);p.y+=p.vy*dt*(state.speed||1);
+    const outside=p.x<-4||p.x>bounds.width+4||p.y<-4||p.y>bounds.height+4,expired=p.age>p.maxAge;if(outside||expired){if(opens.length)replace(index,radialParticle(opens[cursor++%opens.length].screen,random));else if(fists.length)replace(index,edgeParticle(bounds,fists[cursor++%fists.length].screen,random));else{p.x=(p.x+bounds.width)%bounds.width;p.y=(p.y+bounds.height)%bounds.height;p.age=0;}}
+  }
+  return {cursor,respawns,opens,fists};
+}

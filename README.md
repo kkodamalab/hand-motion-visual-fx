@@ -9,10 +9,10 @@ MediaPipe Hand Landmarker を使い、カメラ映像をブラウザ内だけで
 ## 実装済み
 
 - 2手・21ランドマーク、指骨格/番号デバッグ、開いた手・握り手の安定判定
-- Hand Cube（5本の指を個別選択、指先からの3D距離調整）、二手の Hand Frame（Pop Art / 8-bit / Invert）、簡易Volume
+- Hand Cube（5本の指を個別選択、0〜10仮想cmとCAMERA / UP / OUTWARD方向の3D距離調整）、二手の Hand Frame（Pop Art / 8-bit / Invert）、簡易Volume
 - Hand Frame 内限定の MOSW FX（RGB / GLITCH / MIRROR / WAVE / MONO / INVERT / MOSAIC / STROBE / ZOOM / FILM）
 - Hand Frame の CLASSIC / MOSW FX 切替、MOSW FX の最大3段合成、ドラッグによる適用順変更、手動BPM / マイク入力同期
-- Glass / Chrome / 背景キャプチャを使う簡易Invisible、人物マスクなしでも動作する従来/HAND FLOW切替対応の2D Particle Dissolve
+- Glass / Chrome / 背景キャプチャを使う簡易Invisible、人物マスクなしでも動作する継続放出・吸引型HAND FLOW / 従来方式切替対応の2D Particle Dissolve
 - Anime Frame のFace Landmarker連動Twemoji（5表情、2人、両手フレーム内クリップ、GPU/CPUフォールバック）
 - カメラ切替、ミラー、全画面、スクリーンショット、WebM録画、設定JSON入出力
 - GitHub Pages 用の base 設定と Actions ワークフロー
