@@ -1,2 +1,3 @@
 export function pointInPolygon(point,polygon){let inside=false;for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){const a=polygon[i],b=polygon[j],cross=(a.y>point.y)!==(b.y>point.y)&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y||Number.EPSILON)+a.x;if(cross)inside=!inside;}return inside;}
-export function quadShortEdge(quad){return Math.min(...quad.map((p,i)=>Math.hypot(p.x-quad[(i+1)%quad.length].x,p.y-quad[(i+1)%quad.length].y)));}
+export function pointSegmentDistance(point,a,b){const dx=b.x-a.x,dy=b.y-a.y,lengthSquared=dx*dx+dy*dy;if(!lengthSquared)return Math.hypot(point.x-a.x,point.y-a.y);const t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/lengthSquared)),x=a.x+t*dx,y=a.y+t*dy;return Math.hypot(point.x-x,point.y-y);}
+export function circleIntersectsPolygon(center,radius,polygon){return pointInPolygon(center,polygon)||polygon.some((point,index)=>pointSegmentDistance(center,point,polygon[(index+1)%polygon.length])<=radius);}
