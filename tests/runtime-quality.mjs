@@ -12,14 +12,14 @@ assert.equal(selectedFingertips([hand,hand],{thumb:true,index:true}).length,4);
 
 class ContextSpy{
   constructor(){this.rects=[];this.images=[];this.clips=0;this.stack=[];this.globalCompositeOperation='source-over';}
-  save(){this.stack.push(1);} restore(){this.stack.pop();} fillRect(...v){this.rects.push(v);} drawImage(...v){this.images.push(v);} clearRect(){} beginPath(){} moveTo(){} lineTo(){} closePath(){} clip(){this.clips++;} translate(){} rotate(){} arc(){} stroke(){} fillText(){} setTransform(){} getImageData(){return {data:new Uint8ClampedArray(4)}} putImageData(){}
+  save(){this.stack.push(1);} restore(){this.stack.pop();} fillRect(...v){this.rects.push(v);} drawImage(...v){this.images.push(v);} clearRect(){} beginPath(){} moveTo(){} lineTo(){} closePath(){} clip(){this.clips++;} translate(){} rotate(){} arc(){} fill(){this.fills=(this.fills||0)+1;} stroke(){} fillText(){} setTransform(){} getImageData(){return {data:new Uint8ClampedArray(4)}} putImageData(){}
 }
 const layerContext=new ContextSpy(),mainContext=new ContextSpy();
 const renderer=Object.create(FXRenderer.prototype);Object.assign(renderer,{c:{width:320,height:180},x:mainContext,particleLayer:{getContext:()=>layerContext},particles:[],lastParticleTime:0,particleCursor:0,stableQuad:null,quadSeen:0,emoji:{draw:(ctx,name)=>{ctx.emoji=(ctx.emoji||[]).concat(name);}}});
 renderer.point=FXRenderer.prototype.point;
 const settings={particles:30,particleSize:3,particleColor:'#35f4ff',particleMode:'hand',flowStrength:2,flowRadius:160,particleTrail:55,speed:1,mirror:false};
 // TEST 2: no segmentation and no hand data still produce visible particle draw calls.
-renderer.dissolve(settings,null,{hands:[]},1000);assert.equal(renderer.particles.length,30);assert.equal(layerContext.rects.length,31);assert.equal(mainContext.images.length,1);
+renderer.dissolve(settings,null,{hands:[]},1000);assert.equal(renderer.particles.length,30);assert.equal(layerContext.rects.length+(layerContext.fills||0),31);assert.equal(mainContext.images.length,1);
 // TEST 3/4: force direction is radial-out for OPEN and inward for FIST.
 const particle={x:140,y:90},center={x:100,y:90};
 const openForce=handFlowForce(particle,[{gesture:'OPEN',screen:center}],settings);assert.ok(openForce.x>0,'OPEN must push away from center');
